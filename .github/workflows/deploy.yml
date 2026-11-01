@@ -1,11 +1,12 @@
-# Publishes the plugin page to GitHub Pages and creates a release.
-# Runs only for a pushed v* tag; the deploy job waits for manual approval
-# in the github-pages environment (docs/SPEC.md 7.6).
+# Publishes the plugin page to GitHub Pages and creates a tagged release.
+# Started manually from main (Actions -> Deploy -> Run workflow). The deploy
+# job waits for manual approval in the github-pages environment; only after
+# that the release job tags the built commit v<package.json version>
+# (docs/SPEC.md 7.6). A version that already has a tag is never republished.
 name: Deploy
 
 on:
-  push:
-    tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -17,8 +18,11 @@ concurrency:
 jobs:
   build:
     name: Build and verify
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -29,15 +33,18 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
 
-      - name: Tag must match package.json version
-        env:
-          TAG: ${{ github.ref_name }}
+      - name: Version must not be published yet
+        id: version
         run: |
           VERSION="$(node -p 'require("./package.json").version')"
-          if [ "v$VERSION" != "$TAG" ]; then
-            echo "Tag $TAG does not match package.json version $VERSION" >&2
+          TAG="v$VERSION"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists: bump the version in package.json" >&2
             exit 1
           fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Publishing $TAG"
 
       - run: npm ci
       - run: npm run typecheck
@@ -50,9 +57,8 @@ jobs:
 
       - name: Release files (zip + SHA256SUMS)
         env:
-          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          VERSION="${TAG#v}"
           mkdir -p release
           (cd dist && zip -r -X -q "../release/budget-hello-$VERSION.zip" .)
           (cd release && sha256sum "budget-hello-$VERSION.zip" > SHA256SUMS && cat SHA256SUMS)
@@ -84,8 +90,8 @@ jobs:
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
   release:
-    name: GitHub release
-    needs: deploy
+    name: Tag and GitHub release
+    needs: [build, deploy]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -96,14 +102,15 @@ jobs:
           name: release
           path: release
 
-      - name: Create release
+      - name: Create tag and release on the built commit
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ needs.build.outputs.tag }}
+          SHA: ${{ github.sha }}
           REPO: ${{ github.repository }}
         run: |
           gh release create "$TAG" release/* \
             --repo "$REPO" \
-            --verify-tag \
+            --target "$SHA" \
             --title "$TAG" \
-            --notes "Built from tag $TAG. Verify the zip with: sha256sum -c SHA256SUMS"
+            --notes "Built from $SHA. Verify the zip with: sha256sum -c SHA256SUMS"

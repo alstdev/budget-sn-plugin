@@ -4,30 +4,26 @@
 
 > **Лише на окремій тестовій нотатці.** Плагін змінює текст тільки порожньої нотатки або нотатки, яку сам позначив першим рядком `<!-- budget-hello test note: safe to overwrite -->`. Справжню нотатку він лише читає (довжина й відбиток), але відкривати її в ньому не треба.
 
-## 1. Підготовка (один раз, налаштування GitHub)
+## 1. Підготовка (один раз, налаштування репозиторію на GitHub)
 
-1. Settings → Pages → Source: **GitHub Actions**.
-2. Settings → Environments → `github-pages` (з'являється після вибору Pages source):
+1. `https://github.com/alstdev/budget-sn-plugin/settings/pages` → Build and deployment → Source: **GitHub Actions**.
+2. `https://github.com/alstdev/budget-sn-plugin/settings/environments` → `github-pages`:
    - **Required reviewers** — власник;
-   - **Deployment branches and tags** — дозволити тег `v*`; інакше деплой з тегу буде відхилено. ⁉️ Типове правило середовища залежить від налаштувань репозиторію — перевірити на місці.
-3. Settings → Branches → правило для `main`: PR обов'язковий, заборона force-push.
-4. Settings → Code security: Secret scanning + Push protection, Dependabot alerts.
+   - **Deployment branches and tags** — у списку правил має бути гілка `main` (публікація запускається з неї).
+3. `https://github.com/alstdev/budget-sn-plugin/settings/branches` → правило для `main`: PR обов'язковий, заборона force-push.
+4. `https://github.com/alstdev/budget-sn-plugin/settings/security_analysis`: Secret scanning + Push protection, Dependabot alerts.
 5. 2FA на акаунті GitHub.
 
-## 2. Публікація
+## 2. Публікація (без git, у браузері)
 
-1. Злити PR етапу 0 у `main`.
-2. Поставити тег версії з `package.json` і запушити його:
-
-   ```bash
-   git tag v0.0.1 && git push origin v0.0.1
-   ```
-
-3. Actions → Deploy → підтвердити деплой у середовищі `github-pages`.
-4. Після деплою:
+1. Злити PR у `main`.
+2. Actions → **Deploy** → **Run workflow** → гілка `main` → **Run workflow**.
+3. Дочекатися зеленого job «Build and verify» → **Review deployments** → `github-pages` → **Approve and deploy**.
+4. Після деплою workflow сам ставить тег `v<версія з package.json>` і створює реліз (zip + `SHA256SUMS`):
    - сторінка: `https://alstdev.github.io/budget-sn-plugin/`;
-   - маніфест: `https://alstdev.github.io/budget-sn-plugin/ext.json`;
-   - реліз: zip + `SHA256SUMS`.
+   - маніфест: `https://alstdev.github.io/budget-sn-plugin/ext.json`.
+
+Повторно ту саму версію workflow не публікує: для нової публікації спершу підвищується версія в `package.json`.
 
 ## 3. Встановлення
 
