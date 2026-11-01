@@ -8,6 +8,11 @@ updates:
     cooldown:
       default-days: 3
     versioning-strategy: increase
+    ignore:
+      # typescript-eslint 8.x accepts only typescript <6.1 (peer dependency);
+      # remove this rule once typescript-eslint supports newer TypeScript.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
     open-pull-requests-limit: 5
     commit-message:
       prefix: deps
