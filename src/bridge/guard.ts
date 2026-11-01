@@ -71,8 +71,16 @@ export function parsePayload(data: unknown): Record<string, unknown> | 'format' 
   return value;
 }
 
+/**
+ * Origin that Standard Notes desktop (Electron) and Android report for their
+ * app page (stage 0 results, docs/STAGE0.md). Chromium serialises file: origins
+ * as "file://"; the URL standard calls them opaque, so it is allowed explicitly.
+ */
+export const FILE_ORIGIN = 'file://';
+
 /** An origin we are willing to pin and later use as postMessage targetOrigin. */
 export function isPinnableOrigin(origin: string): boolean {
+  if (origin === FILE_ORIGIN) return true;
   if (origin === '' || origin === 'null') return false;
   try {
     return new URL(origin).origin === origin;
