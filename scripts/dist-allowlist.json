@@ -1,0 +1,31 @@
+{
+  "comment": "Exceptions for scripts/check-dist.mjs. Counts are exact: any change fails the check and must be reviewed. Every entry needs a reason.",
+  "rules": {
+    "innerHTML": {
+      "count": 2,
+      "reason": "Preact core: the dangerouslySetInnerHTML code path (compare and assign). Reachable only through that prop, which ESLint forbids in our code (no-restricted-syntax)."
+    },
+    "console": {
+      "count": 2,
+      "reason": "@standardnotes/component-relay Logger: console.log.bind is returned only when debug is true (the adapter passes debug: false); console.error is used once with a static string for unparsable messages, which the adapter guard rejects before the library sees them."
+    }
+  },
+  "urls": {
+    "http://www.w3.org/2000/svg": {
+      "count": 2,
+      "reason": "Preact: SVG namespace URI string for createElementNS; not a request."
+    },
+    "http://www.w3.org/1998/Math/MathML": {
+      "count": 2,
+      "reason": "Preact: MathML namespace URI string for createElementNS; not a request."
+    },
+    "http://www.w3.org/1999/xhtml": {
+      "count": 2,
+      "reason": "Preact: XHTML namespace URI string; not a request."
+    },
+    "https://github.com/uuidjs/uuid#getrandomvalues-not-supported": {
+      "count": 1,
+      "reason": "uuid (bundled inside component-relay): text of an Error thrown when crypto.getRandomValues is missing; not a request."
+    }
+  }
+}

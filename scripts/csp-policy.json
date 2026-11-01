@@ -1,0 +1,14 @@
+{
+  "comment": "Single source of the expected CSP (docs/SPEC.md, 7.3). Changing it requires a separate PR with a rationale.",
+  "directives": [
+    "default-src 'none'",
+    "script-src 'self'",
+    "style-src 'self'",
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "connect-src 'none'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'"
+  ]
+}
