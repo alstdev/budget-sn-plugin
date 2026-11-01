@@ -1,0 +1,33 @@
+{
+  "name": "budget-sn-plugin",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Budget editor plugin for Standard Notes (stage 0: hello-budget platform probe)",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=26.13.0 <27",
+    "npm": ">=11.10.0"
+  },
+  "scripts": {
+    "dev": "vite build --mode development && vite preview --host 127.0.0.1 --port 5173 --strictPort",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "build": "vite build",
+    "check:dist": "node scripts/check-dist.mjs",
+    "check:workflows": "node scripts/check-workflows.mjs"
+  },
+  "dependencies": {
+    "@standardnotes/component-relay": "2.2.2",
+    "preact": "11.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  }
+}

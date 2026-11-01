@@ -1,0 +1,109 @@
+# Publishes the plugin page to GitHub Pages and creates a release.
+# Runs only for a pushed v* tag; the deploy job waits for manual approval
+# in the github-pages environment (docs/SPEC.md 7.6).
+name: Deploy
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Tag must match package.json version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="$(node -p 'require("./package.json").version')"
+          if [ "v$VERSION" != "$TAG" ]; then
+            echo "Tag $TAG does not match package.json version $VERSION" >&2
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npm run check:dist
+      - run: npm run check:workflows
+      - run: npm audit --audit-level=high
+
+      - name: Release files (zip + SHA256SUMS)
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          mkdir -p release
+          (cd dist && zip -r -X -q "../release/budget-hello-$VERSION.zip" .)
+          (cd release && sha256sum "budget-hello-$VERSION.zip" > SHA256SUMS && cat SHA256SUMS)
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: dist
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: release
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  release:
+    name: GitHub release
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: release
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release create "$TAG" release/* \
+            --repo "$REPO" \
+            --verify-tag \
+            --title "$TAG" \
+            --notes "Built from tag $TAG. Verify the zip with: sha256sum -c SHA256SUMS"
