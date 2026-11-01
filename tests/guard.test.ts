@@ -96,5 +96,8 @@ describe('isPinnableOrigin', () => {
     expect(isPinnableOrigin('http://localhost:3001')).toBe(true);
     expect(isPinnableOrigin('https://app.standardnotes.com/')).toBe(false);
     expect(isPinnableOrigin('null')).toBe(false);
+    // Standard Notes desktop and Android (stage 0).
+    expect(isPinnableOrigin('file://')).toBe(true);
+    expect(isPinnableOrigin('file:///')).toBe(false);
   });
 });

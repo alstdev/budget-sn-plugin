@@ -42,6 +42,9 @@ const OUTCOME_TEXT: Readonly<Record<SaveOutcome, string>> = {
   'too-large': 'текст перевищує ліміт моста',
 };
 
+/** Origin this page was loaded from (hosted page or a local copy). */
+const SELF_ORIGIN = globalThis.origin;
+
 function yesNo(value: boolean): string {
   return value ? 'так' : 'ні';
 }
@@ -124,7 +127,7 @@ export function App({ bridge, csp, themes }: Props) {
     const lines = [
       `budget-hello report`,
       `environment=${environment} platform=${platform}`,
-      `registered=${diag.registered} pinnedOrigin=${diag.pinnedOrigin ?? '-'}`,
+      `registered=${diag.registered} pinnedOrigin=${diag.pinnedOrigin ?? '-'} selfOrigin=${SELF_ORIGIN}`,
       `accepted=${diag.accepted} rejected=${JSON.stringify(diag.rejected)}`,
       `lastRejected=${diag.lastRejected === null ? '-' : `${diag.lastRejected.reason}/${diag.lastRejected.sourceKind}/${diag.lastRejected.origin || '(empty)'}`}`,
       `notes=${diag.notesReceived} invalidItems=${diag.invalidItems} saves=${diag.savesConfirmed}/${diag.savesQueued}`,
@@ -154,6 +157,8 @@ export function App({ bridge, csp, themes }: Props) {
           <dd>{platform}</dd>
           <dt>Зареєстровано в SN</dt>
           <dd>{yesNo(diag.registered)}</dd>
+          <dt>Origin плагіна</dt>
+          <dd>{SELF_ORIGIN}</dd>
           <dt>Origin батька</dt>
           <dd>{diag.pinnedOrigin ?? '—'}</dd>
         </dl>

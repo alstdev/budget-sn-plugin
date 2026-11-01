@@ -1,6 +1,6 @@
 {
   "name": "budget-sn-plugin",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "Budget editor plugin for Standard Notes (stage 0: hello-budget platform probe)",
   "license": "AGPL-3.0-only",

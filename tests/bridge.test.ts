@@ -170,3 +170,27 @@ describe('bridge state after own saves', () => {
     expect(latest).toEqual({ uuid: 'note-1', text: 'c', locked: false, meta: { c: 1 } });
   });
 });
+
+describe('coalesced saves', () => {
+  it('keeps metadata when only the last presave of a burst runs', () => {
+    const { bridge, h, register } = setup();
+    register();
+    const item = note('t', { 'org.standardnotes.sn': {} });
+    h.stream?.(item);
+    bridge.save({ text: 't', preview: '', meta: { c: 5 } });
+    bridge.save({ text: 't2', preview: '' });
+    // The library runs only the latest presave of the debounce window.
+    h.saves[h.saves.length - 1]?.presave();
+    expect(item.content).toMatchObject({ text: 't2', appData: { [EXT]: { c: 5 } } });
+  });
+
+  it('writes back metadata received from Standard Notes on a text-only save', () => {
+    const { bridge, h, register } = setup();
+    register();
+    const item = note('t', { [EXT]: { c: 7 } });
+    h.stream?.(item);
+    bridge.save({ text: 'u', preview: '' });
+    h.saves[0]?.presave();
+    expect(item.content).toMatchObject({ text: 'u', appData: { [EXT]: { c: 7 } } });
+  });
+});

@@ -198,8 +198,13 @@ export function createBridge(
     const target = current.raw;
     const text = request.text;
     const preview = request.preview.slice(0, MAX_PREVIEW_CHARS);
-    const hasMeta = request.meta !== undefined;
-    const meta = hasMeta ? (JSON.parse(JSON.stringify(request.meta)) as JsonValue) : undefined;
+    // The library coalesces saves within its debounce window and runs only the
+    // last presave, so every save carries the latest metadata, not only the
+    // saves that change it (stage 0 finding).
+    const nextMeta: unknown =
+      request.meta !== undefined ? JSON.parse(JSON.stringify(request.meta)) : current.note.meta;
+    const hasMeta = nextMeta !== undefined;
+    const meta = nextMeta;
 
     savesQueued += 1;
     emitDiagnostics();
@@ -224,7 +229,7 @@ export function createBridge(
     // notified only for notes coming from Standard Notes.
     current = {
       raw: target,
-      note: { ...current.note, text, ...(hasMeta ? { meta } : {}) },
+      note: { ...current.note, text, meta },
     };
     return 'queued';
   };
