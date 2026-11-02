@@ -6,6 +6,8 @@ import type { ComponentType } from 'preact';
 import { normalizeTitle, type Heading } from './md/lines';
 import type { CardProps, CreateInput, Issue, MdBlock, SectionTemplate } from './template';
 import { debtTemplate } from '../templates/debts';
+import { fixedTemplate, plannedTemplate } from '../templates/monthTemplate';
+import { monthTemplate } from '../templates/months';
 import { savingsTemplate } from '../templates/savings';
 
 /** Template with its model type erased, so different templates fit one list. */
@@ -37,7 +39,18 @@ function register<M>(t: SectionTemplate<M>): RegisteredTemplate {
   };
 }
 
-const TEMPLATES: readonly RegisteredTemplate[] = [register(debtTemplate), register(savingsTemplate)];
+const TEMPLATES: readonly RegisteredTemplate[] = [
+  register(debtTemplate),
+  register(savingsTemplate),
+  register(monthTemplate),
+  register(fixedTemplate),
+  register(plannedTemplate),
+];
+
+/** Normalized titles of the "## " groups the templates live under. */
+export function knownParentTitles(): ReadonlySet<string> {
+  return new Set(TEMPLATES.map((t) => t.parentTitle));
+}
 
 export function findTemplate(heading: Heading, parent: Heading): RegisteredTemplate | undefined {
   return TEMPLATES.find((t) => t.match(heading, parent));

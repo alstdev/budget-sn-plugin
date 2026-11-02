@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { Bridge, Diagnostics, NoteSnapshot, SaveOutcome, SaveRequest } from '../src/bridge';
 import { App } from '../src/ui/App';
 import { debtTemplate, type DebtModel } from '../src/templates/debts';
+import months from './fixtures/months.md?raw';
 
 const XSS = '<img src=x onerror="globalThis.pwned=1"><script>globalThis.pwned=1</script>';
 
@@ -88,7 +89,10 @@ describe('rendering note content as text (SPEC 7.8)', () => {
       },
     };
     const Card = debtTemplate.views.Card;
-    const c = mount(<Card model={model} issues={[]} readOnly={false} open onToggle={() => undefined} onChange={() => null} />);
+    const context = { monthKeys: [], debtNames: [], savingsNames: [], fixed: [], lastCur: { exp: 'UAH', inc: 'UAH' } };
+    const c = mount(
+      <Card model={model} issues={[]} readOnly={false} open onToggle={() => undefined} onChange={() => null} context={context} act={() => null} />,
+    );
     expect(c.querySelector('img, script')).toBeNull();
     expect(c.textContent).toContain(XSS);
     expect((globalThis as { pwned?: number }).pwned).toBeUndefined();
@@ -110,6 +114,7 @@ describe('App flow', () => {
     click(button(c, 'Створити бюджет'));
     expect(bridge.saves[0]?.text).toMatch(/^# Бюджет \d{4}\n> формат: budget v1/);
 
+    click(button(c, 'Борги'));
     click(button(c, '+ Борг'));
     type(c.querySelector('.dialog input'), 'Кредит');
     const inputs = c.querySelectorAll('.dialog input');
@@ -134,6 +139,7 @@ describe('App flow', () => {
     const bridge = new FakeBridge(note('# Б\n> budget v1\n\n## Борги\n\n### А · UAH\nПочаткова сума: 5 UAH\n', true));
     const c = mount(<App bridge={bridge} />);
     expect(c.textContent).toContain('Нотатка заблокована');
+    click(button(c, 'Борги'));
     expect(button(c, '+ Борг')).toBeUndefined();
     click(c.querySelector('.card-toggle'));
     expect(button(c, '+ Платіж')).toBeUndefined();
@@ -144,6 +150,7 @@ describe('App flow', () => {
     const bridge = new FakeBridge(note('# Звичайна нотатка\nтекст\n'));
     const c = mount(<App bridge={bridge} />);
     expect(c.textContent).toContain('не у форматі «budget v1»');
+    click(button(c, 'Борги'));
     expect(button(c, '+ Борг')).toBeUndefined();
   });
 
@@ -151,6 +158,7 @@ describe('App flow', () => {
     const start = '# Б\n> budget v1\n\n## Борги\n\n### А · UAH\nПочаткова сума: 100 UAH\n';
     const bridge = new FakeBridge(note(start));
     const c = mount(<App bridge={bridge} />);
+    click(button(c, 'Борги'));
     click(c.querySelector('.card-toggle'));
     click(button(c, '+ Платіж'));
     const [, amount] = [...c.querySelectorAll('.dialog input')];
@@ -162,5 +170,54 @@ describe('App flow', () => {
     const text = bridge.saves[0]?.text ?? '';
     expect(text).toContain('з іншого пристрою');
     expect(text).toContain('_Залишок: 90 UAH');
+  });
+});
+
+describe('months flow (SPEC 4.7)', () => {
+  const now = () => new Date(2026, 9, 20);
+
+  it('pays a pending row from the months tab; the last month is open', () => {
+    const bridge = new FakeBridge(note(months));
+    const c = mount(<App bridge={bridge} now={now} />);
+    expect(c.textContent).toContain('Очікують оплати');
+    click(button(c, 'Місяці'));
+    const pay = [...c.querySelectorAll('button')].filter((b) => b.textContent === 'Оплатити');
+    expect(pay).toHaveLength(2);
+    click(pay[0]);
+    expect(c.querySelector('[role="dialog"] h3')?.textContent).toBe('Оплатити: Інтернет');
+    click(c.querySelector('[role="dialog"] button[type="submit"]'));
+    const text = bridge.saves[0]?.text ?? '';
+    expect(text).toMatch(/\| \d{4}-\d{2}-\d{2} \| Інтернет {2}\| {3}300 \| UAH \| {3}300 \| пост/);
+    expect(bridge.saves[0]?.meta).toMatchObject({ lastCur: { exp: 'UAH' } });
+  });
+
+  it('creates the next month from the template', () => {
+    const bridge = new FakeBridge(note(months));
+    const c = mount(<App bridge={bridge} now={now} />);
+    click(button(c, 'Місяці'));
+    click(button(c, 'Створити 2026-11 Листопад з шаблону'));
+    expect(bridge.saves[0]?.text).toContain('### 2026-11 Листопад');
+    expect(button(c, 'Створити 2026-12 Грудень з шаблону')).toBeDefined();
+  });
+
+  it('debt payment form offers the month checkbox only when the month exists', () => {
+    const bridge = new FakeBridge(note(months));
+    const c = mount(<App bridge={bridge} now={now} />);
+    click(button(c, 'Борги'));
+    click(c.querySelector('.card-toggle'));
+    click(button(c, '+ Платіж'));
+    const box = c.querySelector('.dialog input[type="checkbox"]');
+    if (!(box instanceof HTMLInputElement)) throw new Error('checkbox expected');
+    // The form defaults to the real current date, so set it explicitly.
+    type(c.querySelector('.dialog input[type="date"]'), '2026-12-01');
+    expect(box.disabled).toBe(true);
+    type(c.querySelector('.dialog input[type="date"]'), '2026-10-28');
+    expect(box.disabled).toBe(false);
+    const [, amount] = [...c.querySelectorAll('.dialog input')];
+    type(amount ?? null, '500');
+    click(button(c, 'Зберегти'));
+    const text = bridge.saves[0]?.text ?? '';
+    expect(text).toContain('| 2026-10-28 |  500 | UAH |   500 |');
+    expect(text).toMatch(/\| 2026-10-28 \| Кредитка +\| +500 \| UAH \| +500 \| борг/);
   });
 });

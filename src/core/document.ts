@@ -15,7 +15,7 @@ import {
   type Line,
 } from './md/lines';
 import type { Issue } from './template';
-import { findTemplate, getTemplate } from './registry';
+import { findTemplate, getTemplate, knownParentTitles } from './registry';
 
 export const FORMAT_VERSION = 1;
 export const FORMAT_MARKER = '> формат: budget v1 · таблиці редагуються руками · рядки _курсивом_ рахує плагін';
@@ -172,7 +172,7 @@ export function isWritable(doc: BudgetDocument): boolean {
 
 /** Text of a new budget note (docs/SPEC.md 5.1, 5.2). */
 export function skeletonText(year: number): string {
-  return `# Бюджет ${year}\n${FORMAT_MARKER}\n\n## Борги\n\n## Накопичення\n`;
+  return `# Бюджет ${year}\n${FORMAT_MARKER}\n\n## Борги\n\n## Місяці\n\n## Накопичення\n\n## Шаблон місяця\n`;
 }
 
 export function sectionsOf(doc: BudgetDocument, templateId: string): { block: SectionBlock; index: number }[] {
@@ -267,7 +267,7 @@ export function addSection(doc: BudgetDocument, templateId: string, model: unkno
 
 /** Raw blocks with content no template recognised (shown as "Інше"). */
 export function unknownBlocks(doc: BudgetDocument): string[] {
-  const known = new Set(['борги', 'накопичення']);
+  const known = knownParentTitles();
   const out: string[] = [];
   for (const block of doc.blocks) {
     if (block.kind !== 'raw') continue;
