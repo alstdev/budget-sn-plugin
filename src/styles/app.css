@@ -571,3 +571,55 @@ tr.pending td {
     border-radius: 12px 12px 0 0;
   }
 }
+
+/* Waiting for the note: three blue dots in the middle of the screen. */
+.loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--b-bg);
+}
+
+/* Opened directly in a browser, outside Standard Notes. */
+.loading.standalone {
+  background: #000;
+}
+
+.loading .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  /* Standard Notes brand blue (--sn-stylekit-info-color in SN's stylesheet). */
+  background: #086dd6;
+  animation: loading-pulse 1.2s ease-in-out infinite;
+}
+
+.loading .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loading .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes loading-pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+  }
+
+  40% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading .dot {
+    animation: none;
+    opacity: 0.6;
+  }
+}
