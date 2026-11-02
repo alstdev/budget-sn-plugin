@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import pkg from './package.json' with { type: 'json' };
-import { EXT_IDENTIFIER, EXT_NAME, PAGES_URL, RELEASE_BASE } from './src/ext-meta.ts';
+import { EXT_IDENTIFIER, EXT_NAME, PAGES_URL, RELEASE_BASE, zipName } from './src/ext-meta.ts';
 
 /**
  * Emits ext.json (Standard Notes plugin manifest) next to index.html.
@@ -18,9 +18,9 @@ function extJson(): Plugin {
         content_type: 'SN|Component',
         area: 'editor-editor',
         version: pkg.version,
-        description: 'Stage 0 platform probe. Use only on a test note.',
+        description: 'Budget kept as plain Markdown: debts, savings, months.',
         url: `${PAGES_URL}index.html`,
-        download_url: `${RELEASE_BASE}v${pkg.version}/budget-hello-${pkg.version}.zip`,
+        download_url: `${RELEASE_BASE}v${pkg.version}/${zipName(pkg.version)}`,
       };
       this.emitFile({
         type: 'asset',

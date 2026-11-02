@@ -7,6 +7,8 @@ const NETWORK = 'Network access is forbidden: note data must never leave the plu
 const STORAGE = 'Browser storage is forbidden: UI state goes to note appData via the bridge (SPEC 7.1).';
 const EXEC = 'Dynamic code execution is forbidden (SPEC 7.1).';
 const HTML = 'Render note content as text only (Preact nodes), never as HTML (SPEC 7.1).';
+// <form> is allowed: submit is always handled in JS and CSP form-action 'none'
+// blocks any submission navigation.
 const NAV = 'The plugin must not open windows, navigate or create frames (SPEC 7.4).';
 const BRIDGE = 'Only src/bridge/ may use postMessage / message events (SPEC 7.4).';
 
@@ -57,10 +59,10 @@ const baseSyntax = [
   { selector: "CallExpression[callee.property.name=/^(insertAdjacentHTML|createContextualFragment|parseFromString)$/]", message: HTML },
   { selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']", message: HTML },
   {
-    selector: "CallExpression[callee.property.name=/^(createElement|createElementNS)$/] > Literal.arguments[value=/^(iframe|frame|script|object|embed|form|a|base|meta|link|style)$/i]",
+    selector: "CallExpression[callee.property.name=/^(createElement|createElementNS)$/] > Literal.arguments[value=/^(iframe|frame|script|object|embed|a|base|meta|link|style)$/i]",
     message: NAV,
   },
-  { selector: 'JSXOpeningElement[name.name=/^(iframe|frame|script|object|embed|form|a|base|meta|link|style)$/]', message: NAV },
+  { selector: 'JSXOpeningElement[name.name=/^(iframe|frame|script|object|embed|a|base|meta|link|style)$/]', message: NAV },
   { selector: `MemberExpression[object.name=${GLOBAL_OBJECTS}][property.name='open']`, message: NAV },
 ];
 
@@ -104,7 +106,7 @@ export default defineConfig(
     rules: securityRules(baseSyntax),
   },
   {
-    files: ['tests/**/*.ts'],
+    files: ['tests/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-globals': ['error', ...restrictedGlobals],
       'no-restricted-syntax': ['error', ...baseSyntax],

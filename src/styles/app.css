@@ -1,0 +1,365 @@
+/*
+ * Colours and fonts come from Standard Notes theme variables; fallbacks
+ * follow the OS light/dark preference (docs/SPEC.md 8).
+ */
+:root {
+  --b-bg: var(--sn-stylekit-background-color, #ffffff);
+  --b-fg: var(--sn-stylekit-foreground-color, #1b1b1f);
+  --b-muted: var(--sn-stylekit-neutral-color, #5f6368);
+  --b-border: var(--sn-stylekit-border-color, #d0d3d9);
+  --b-accent: var(--sn-stylekit-info-color, #086dd6);
+  --b-accent-fg: var(--sn-stylekit-info-contrast-color, #ffffff);
+  --b-surface: var(--sn-stylekit-contrast-background-color, #f3f4f6);
+  --b-pos: var(--sn-stylekit-success-color, #1d7a3a);
+  --b-neg: var(--sn-stylekit-danger-color, #b3261e);
+  --b-warn: var(--sn-stylekit-warning-color, #9a5b00);
+  --b-font: var(--sn-stylekit-sans-serif-font, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif);
+  --b-mono: var(--sn-stylekit-monospace-font, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --b-bg: var(--sn-stylekit-background-color, #1b1b1f);
+    --b-fg: var(--sn-stylekit-foreground-color, #e8e8ea);
+    --b-muted: var(--sn-stylekit-neutral-color, #a0a4ab);
+    --b-border: var(--sn-stylekit-border-color, #3a3d44);
+    --b-accent: var(--sn-stylekit-info-color, #5aa2ff);
+    --b-accent-fg: var(--sn-stylekit-info-contrast-color, #0b1220);
+    --b-surface: var(--sn-stylekit-contrast-background-color, #26282e);
+    --b-pos: var(--sn-stylekit-success-color, #5cc27a);
+    --b-neg: var(--sn-stylekit-danger-color, #ff8a80);
+    --b-warn: var(--sn-stylekit-warning-color, #f0a54a);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--b-bg);
+  color: var(--b-fg);
+  font-family: var(--b-font);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 12px 16px 32px;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pos {
+  color: var(--b-pos);
+}
+
+.neg {
+  color: var(--b-neg);
+}
+
+.muted {
+  color: var(--b-muted);
+}
+
+.notice,
+.info {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--b-accent);
+  background: var(--b-surface);
+}
+
+.error {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--b-neg);
+  background: var(--b-surface);
+  color: var(--b-neg);
+}
+
+.hint {
+  margin: 4px 0 0;
+  color: var(--b-muted);
+  font-size: 0.9em;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--b-border);
+  margin-bottom: 12px;
+}
+
+.tab {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--b-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tab.active {
+  color: var(--b-fg);
+  border-bottom-color: var(--b-accent);
+}
+
+/* Buttons */
+button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--b-border);
+  border-radius: 6px;
+  background: var(--b-surface);
+  color: var(--b-fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+button.primary {
+  background: var(--b-accent);
+  border-color: var(--b-accent);
+  color: var(--b-accent-fg);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--b-accent);
+  outline-offset: 2px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Cards */
+.card {
+  border: 1px solid var(--b-border);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  background: var(--b-bg);
+}
+
+.card-heading {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.card-toggle {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  text-align: left;
+  font-weight: 600;
+}
+
+.card-name {
+  overflow-wrap: anywhere;
+}
+
+.card-progress {
+  display: block;
+  width: calc(100% - 28px);
+  height: 6px;
+  margin: 0 14px 10px;
+  accent-color: var(--b-accent);
+}
+
+.card-body {
+  padding: 0 14px 14px;
+}
+
+.details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 0 0 12px;
+}
+
+.details dt {
+  color: var(--b-muted);
+}
+
+.details dd {
+  margin: 0;
+  text-align: left;
+}
+
+.issues {
+  margin: 0 0 12px;
+  padding-left: 18px;
+}
+
+.issues .critical {
+  color: var(--b-neg);
+}
+
+.issues .warning {
+  color: var(--b-warn);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table.history {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.history th,
+.history td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--b-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.history th.num,
+.history td.num {
+  text-align: right;
+}
+
+.history td.date {
+  white-space: nowrap;
+}
+
+.raw-row code {
+  font-family: var(--b-mono);
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--b-surface);
+  color: var(--b-warn);
+  font-size: 0.85em;
+}
+
+/* Forms */
+.dialog {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--b-border);
+  border-radius: 8px;
+  background: var(--b-surface);
+}
+
+.dialog h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.field label {
+  color: var(--b-muted);
+}
+
+.field input,
+.field select {
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--b-border);
+  border-radius: 6px;
+  background: var(--b-bg);
+  color: var(--b-fg);
+  font: inherit;
+}
+
+.field input:disabled {
+  color: var(--b-muted);
+}
+
+.currency {
+  display: flex;
+  gap: 8px;
+}
+
+.currency input {
+  width: 6em;
+  text-transform: uppercase;
+}
+
+/* Unknown sections */
+.unknown {
+  margin-bottom: 8px;
+  border: 1px solid var(--b-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.unknown summary {
+  min-height: 32px;
+  cursor: pointer;
+  color: var(--b-muted);
+}
+
+.unknown pre {
+  margin: 8px 0 0;
+  font-family: var(--b-mono);
+  font-size: 0.85em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 639px) {
+  .app {
+    padding: 8px 12px 24px;
+  }
+
+  .details {
+    grid-template-columns: 1fr;
+  }
+
+  .details dt {
+    margin-top: 6px;
+  }
+
+  .actions button {
+    flex: 1 1 auto;
+  }
+}

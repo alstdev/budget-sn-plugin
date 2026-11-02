@@ -60,8 +60,8 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           mkdir -p release
-          (cd dist && zip -r -X -q "../release/budget-hello-$VERSION.zip" .)
-          (cd release && sha256sum "budget-hello-$VERSION.zip" > SHA256SUMS && cat SHA256SUMS)
+          (cd dist && zip -r -X -q "../release/budget-$VERSION.zip" .)
+          (cd release && sha256sum "budget-$VERSION.zip" > SHA256SUMS && cat SHA256SUMS)
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
