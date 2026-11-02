@@ -17,7 +17,9 @@ import { DEFAULT_META, readMeta, writeMeta, type NoteMeta, type Tab } from '../c
 import { formatMoneyUi } from '../core/money';
 import { getTemplate } from '../core/registry';
 import { checkSave } from '../core/saveGuard';
+import { consistencyIssues } from '../core/validate';
 import { monthStats, monthTitle, nextMonthKey, type MonthModel } from '../templates/months/model';
+import { AddSectionDialog, type AddSectionHandlers } from './AddSectionDialog';
 import { NewSectionForm } from './NewSectionForm';
 import { buildPreview, monthKeyOf, moneyList, overview } from './overview';
 import { FixedRowForm, PlannedRowForm } from './TemplateRowForms';
@@ -53,6 +55,7 @@ export function App({ bridge, now = () => new Date() }: { readonly bridge: Bridg
   const [meta, setMeta] = useState<NoteMeta>(DEFAULT_META);
   const [banner, setBanner] = useState<Banner | null>(null);
   const [adding, setAdding] = useState<Adding>(null);
+  const [showAdd, setShowAdd] = useState(false);
 
   // Latest values for callbacks created in earlier renders.
   const lastText = useRef<string | null>(null);
@@ -136,6 +139,8 @@ export function App({ bridge, now = () => new Date() }: { readonly bridge: Bridg
   const tab = meta.ui.tab;
   const others = unknownBlocks(doc);
   const context = docContext(doc, meta.lastCur);
+  const consistency = consistencyIssues(doc);
+  const warningCount = [...consistency.values()].reduce((n, list) => n + list.length, 0);
 
   const notices: string[] = [];
   if (locked) notices.push('Нотатка заблокована (Prevent editing): лише перегляд.');
@@ -198,7 +203,7 @@ export function App({ bridge, now = () => new Date() }: { readonly bridge: Bridg
         <Card
           key={key}
           model={block.model}
-          issues={block.issues}
+          issues={[...block.issues, ...(consistency.get(key) ?? [])]}
           readOnly={!writable || block.readOnly}
           open={isOpen(key)}
           onToggle={() => {
@@ -219,17 +224,20 @@ export function App({ bridge, now = () => new Date() }: { readonly bridge: Bridg
     });
   };
 
+  const addLedgerSection = (templateId: 'debt' | 'savings', input: Parameters<AddSectionHandlers['addDebt']>[0]) => {
+    const current = docRef.current;
+    if (current === null) return 'Нотатка ще не отримана.';
+    const result = addSection(current, templateId, getTemplate(templateId).create(input));
+    return result.ok ? commit(result.doc) : result.error;
+  };
+
   const newSectionForm = (templateId: 'debt' | 'savings') => (
     <NewSectionForm
       title={templateId === 'debt' ? 'Новий борг' : 'Нове накопичення'}
       amountLabel={templateId === 'debt' ? 'Початкова сума' : 'Ціль'}
       amountRequired={templateId === 'debt'}
       onSubmit={(input) => {
-        const current = docRef.current;
-        if (current === null) return 'Нотатка ще не отримана.';
-        const result = addSection(current, templateId, getTemplate(templateId).create(input));
-        if (!result.ok) return result.error;
-        const error = commit(result.doc);
+        const error = addLedgerSection(templateId, input);
         if (error === null) setAdding(null);
         return error;
       }}
@@ -254,6 +262,20 @@ export function App({ bridge, now = () => new Date() }: { readonly bridge: Bridg
   const done = (error: string | null) => {
     if (error === null) setAdding(null);
     return error;
+  };
+
+  const nextKey = lastMonth === undefined ? monthKeyOf(now()) : nextMonthKey(lastMonth);
+  const handlers: AddSectionHandlers = {
+    nextMonth: { key: nextKey, title: monthTitle(nextKey) },
+    defaultPlannedMonth: nextKey,
+    debtNames: context.debtNames,
+    savingsNames: context.savingsNames,
+    addDebt: (input) => addLedgerSection('debt', input),
+    addSavings: (input) => addLedgerSection('savings', input),
+    createMonth: () => act({ type: 'createMonth', key: nextKey }),
+    addFixed: (row) => act({ type: 'addFixed', row }),
+    addPlanned: (row) => act({ type: 'addPlanned', row }),
+    addTable: (title, columns) => act({ type: 'addTable', title, columns }),
   };
 
   const panel = () => {
@@ -300,6 +322,12 @@ export function App({ bridge, now = () => new Date() }: { readonly bridge: Bridg
               </>
             )}
             {o.month === null && <p class="muted">Місяців ще немає. Створіть перший на вкладці «Місяці».</p>}
+            {warningCount > 0 && (
+              <p class="notice">
+                Неузгоджених записів між місяцями й боргами/накопиченнями: {warningCount}. Деталі — у картках
+                (попередження, не помилка).
+              </p>
+            )}
             <h4>Заплановані покупки</h4>
             {o.planned.length === 0 ? (
               <p class="muted">Немає.</p>
@@ -333,7 +361,6 @@ export function App({ bridge, now = () => new Date() }: { readonly bridge: Bridg
           </>
         );
       case 'months': {
-        const nextKey = lastMonth === undefined ? monthKeyOf(now()) : nextMonthKey(lastMonth);
         return (
           <>
             {renderSections('month', 'Місяців ще немає.')}
@@ -383,15 +410,20 @@ export function App({ bridge, now = () => new Date() }: { readonly bridge: Bridg
           </>
         );
       case 'other':
-        return others.length === 0 ? (
-          <p class="muted">Нерозпізнаного вмісту немає.</p>
-        ) : (
-          others.map((text, i) => (
-            <details key={i} class="unknown">
-              <summary>Невідомий розділ {i + 1}</summary>
-              <pre>{text}</pre>
-            </details>
-          ))
+        return (
+          <>
+            {sectionsOf(doc, 'table').length > 0 && renderSections('table', '')}
+            {others.length === 0 ? (
+              <p class="muted">Нерозпізнаного вмісту немає.</p>
+            ) : (
+              others.map((text, i) => (
+                <details key={i} class="unknown">
+                  <summary>Невідомий розділ {i + 1}</summary>
+                  <pre>{text}</pre>
+                </details>
+              ))
+            )}
+          </>
         );
     }
   };
@@ -408,6 +440,7 @@ export function App({ bridge, now = () => new Date() }: { readonly bridge: Bridg
           {banner.text}
         </p>
       )}
+      <div class="tabbar">
       <div class="tabs" role="tablist" aria-label="Розділи бюджету">
         {TAB_LABELS.map((t) => (
           <button
@@ -423,13 +456,47 @@ export function App({ bridge, now = () => new Date() }: { readonly bridge: Bridg
             }}
           >
             {t.label}
-            {t.id === 'other' && others.length > 0 ? ` (${others.length})` : ''}
+            {t.id === 'other' && others.length + sectionsOf(doc, 'table').length > 0
+              ? ` (${others.length + sectionsOf(doc, 'table').length})`
+              : ''}
           </button>
         ))}
+      </div>
+        {writable && (
+          <button
+            type="button"
+            class="add-section"
+            onClick={() => {
+              setShowAdd(true);
+            }}
+          >
+            + Розділ
+          </button>
+        )}
       </div>
       <section role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} class="panel">
         {panel()}
       </section>
+      {writable && !showAdd && (
+        <button
+          type="button"
+          class="fab"
+          aria-label="Новий розділ"
+          onClick={() => {
+            setShowAdd(true);
+          }}
+        >
+          +
+        </button>
+      )}
+      {showAdd && (
+        <AddSectionDialog
+          handlers={handlers}
+          onClose={() => {
+            setShowAdd(false);
+          }}
+        />
+      )}
     </main>
   );
 }

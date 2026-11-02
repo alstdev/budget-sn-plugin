@@ -5,6 +5,7 @@
 import type { ComponentType } from 'preact';
 import { normalizeTitle, type Heading } from './md/lines';
 import type { CardProps, CreateInput, Issue, MdBlock, SectionTemplate } from './template';
+import { customTableTemplate } from '../templates/customTable';
 import { debtTemplate } from '../templates/debts';
 import { fixedTemplate, plannedTemplate } from '../templates/monthTemplate';
 import { monthTemplate } from '../templates/months';
@@ -15,7 +16,9 @@ export interface RegisteredTemplate {
   readonly id: string;
   readonly parentTitle: string;
   readonly parentHeading: string;
+  readonly level: 2 | 3;
   match(heading: Heading, parent?: Heading): boolean;
+  matchBody(lines: readonly string[]): boolean;
   parse(block: MdBlock): { model: unknown; issues: Issue[] };
   serialize(model: unknown): string[];
   name(model: unknown): string;
@@ -30,7 +33,9 @@ function register<M>(t: SectionTemplate<M>): RegisteredTemplate {
     id: t.id,
     parentTitle: normalizeTitle(t.parentHeading),
     parentHeading: t.parentHeading,
+    level: t.level ?? 3,
     match: (heading, parent) => t.match(heading, parent),
+    matchBody: (lines) => t.matchBody?.(lines) ?? true,
     parse: (block) => t.parse(block),
     serialize: (model) => t.serialize(own(model)),
     name: (model) => t.name(own(model)),
@@ -45,15 +50,23 @@ const TEMPLATES: readonly RegisteredTemplate[] = [
   register(monthTemplate),
   register(fixedTemplate),
   register(plannedTemplate),
+  register(customTableTemplate),
 ];
 
 /** Normalized titles of the "## " groups the templates live under. */
 export function knownParentTitles(): ReadonlySet<string> {
-  return new Set(TEMPLATES.map((t) => t.parentTitle));
+  return new Set(TEMPLATES.filter((t) => t.level === 3).map((t) => t.parentTitle));
 }
 
+/** Template for a "### " heading inside a "## " group. */
 export function findTemplate(heading: Heading, parent: Heading): RegisteredTemplate | undefined {
-  return TEMPLATES.find((t) => t.match(heading, parent));
+  return TEMPLATES.find((t) => t.level === 3 && t.match(heading, parent));
+}
+
+/** Template for a top-level "## " section, judged by heading and body. */
+export function findTopTemplate(heading: Heading, body: readonly string[]): RegisteredTemplate | undefined {
+  if (knownParentTitles().has(normalizeTitle(heading.text))) return undefined;
+  return TEMPLATES.find((t) => t.level === 2 && t.match(heading) && t.matchBody(body));
 }
 
 export function getTemplate(id: string): RegisteredTemplate {

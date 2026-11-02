@@ -15,9 +15,11 @@ import {
   type Line,
 } from './md/lines';
 import type { Issue } from './template';
-import { findTemplate, getTemplate, knownParentTitles } from './registry';
+import { findTemplate, findTopTemplate, getTemplate, knownParentTitles } from './registry';
 
 export const FORMAT_VERSION = 1;
+/** `parent` of sections that are top-level "## " sections themselves. */
+export const TOP_LEVEL = '';
 export const FORMAT_MARKER = '> формат: budget v1 · таблиці редагуються руками · рядки _курсивом_ рахує плагін';
 
 export type FormatState =
@@ -71,14 +73,14 @@ function detectFormat(lines: readonly Line[], text: string): FormatState {
   return { kind: 'missing' };
 }
 
-function sectionEnd(lines: readonly Line[], start: number): number {
+function sectionEnd(lines: readonly Line[], start: number, maxLevel = 3): number {
   let inFence = false;
   for (let i = start + 1; i < lines.length; i += 1) {
     const text = lines[i]?.text ?? '';
     if (isFence(text)) inFence = !inFence;
     if (inFence) continue;
     const heading = parseHeading(text);
-    if (heading !== null && heading.level <= 3) return i;
+    if (heading !== null && heading.level <= maxLevel) return i;
   }
   return lines.length;
 }
@@ -107,6 +109,33 @@ export function parseDocument(text: string): BudgetDocument {
       flush();
       parentHeading = heading.level === 2 ? heading : null;
       parent = parentHeading === null ? null : normalizeTitle(parentHeading.text);
+    }
+
+    // Top-level "## " section owned by a level-2 template (e.g. custom table).
+    if (heading !== null && heading.level === 2) {
+      const end = sectionEnd(lines, i, 2);
+      const sectionLines = lines.slice(i, end);
+      const body = sectionLines.slice(1).map((l) => l.text);
+      const top = findTopTemplate(heading, body);
+      if (top !== undefined) {
+        const parsed = top.parse({ heading, lines: body });
+        blocks.push({
+          kind: 'section',
+          templateId: top.id,
+          parent: TOP_LEVEL,
+          lines: sectionLines,
+          model: parsed.model,
+          issues: parsed.issues,
+          readOnly: parsed.issues.some((issue) => issue.critical),
+          dirty: false,
+          lead: '',
+          tail: '',
+        });
+        parentHeading = null;
+        parent = null;
+        i = end;
+        continue;
+      }
     }
 
     const template =
@@ -234,8 +263,21 @@ export function addSection(doc: BudgetDocument, templateId: string, model: unkno
   const eol = doc.eol;
   const blocks = doc.blocks.slice();
   let insertAt = -1;
+  if (template.level === 2) {
+    const title = normalizeTitle(name);
+    const taken = doc.blocks.some((b) =>
+      b.lines.some((l) => {
+        const h = parseHeading(l.text);
+        return h !== null && h.level <= 2 && normalizeTitle(h.text) === title;
+      }),
+    );
+    if (taken || knownParentTitles().has(title)) {
+      return { ok: false, error: 'Розділ з такою назвою вже існує.' };
+    }
+    insertAt = blocks.length;
+  }
   blocks.forEach((b, i) => {
-    if (b.parent === template.parentTitle) insertAt = i + 1;
+    if (template.level === 3 && b.parent === template.parentTitle) insertAt = i + 1;
   });
 
   const before = serializeDocument({ ...doc, blocks: insertAt === -1 ? blocks : blocks.slice(0, insertAt) });
@@ -252,7 +294,7 @@ export function addSection(doc: BudgetDocument, templateId: string, model: unkno
   const section: SectionBlock = {
     kind: 'section',
     templateId,
-    parent: template.parentTitle,
+    parent: template.level === 2 ? TOP_LEVEL : template.parentTitle,
     lines: [],
     model: reparsed.model,
     issues: reparsed.issues,

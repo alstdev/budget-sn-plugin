@@ -47,6 +47,13 @@ export interface SectionTemplate<M> {
   readonly formatVersion: number;
   /** Text of the parent "## " heading this template lives under, e.g. "Борги". */
   readonly parentHeading: string;
+  /**
+   * Heading level of the section: 3 (default, under a "## " group) or 2 (a
+   * top-level "## " section, e.g. a custom table).
+   */
+  readonly level?: 2 | 3;
+  /** Level-2 templates: decides from the section body whether it is theirs. */
+  matchBody?(lines: readonly string[]): boolean;
   match(heading: Heading, parent?: Heading): boolean;
   parse(block: MdBlock): { model: M; issues: Issue[] };
   /** Canonical Markdown of the section, without trailing blank lines. */

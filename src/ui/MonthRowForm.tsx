@@ -3,6 +3,7 @@ import { formatAmount, isCurrency, parseAmount, rateUi } from '../core/money';
 import { EXPENSE_TYPES, type MonthRow } from '../templates/months/model';
 import { isValidDate, todayIso } from '../templates/shared/ledger';
 import { CurrencyField } from './CurrencyField';
+import { useDialog } from './dialog';
 
 interface Props {
   readonly title: string;
@@ -20,6 +21,7 @@ interface Props {
 export function MonthRowForm(props: Props) {
   const { kind, prefill } = props;
   const id = useId();
+  const ref = useDialog<HTMLDivElement>(props.onCancel);
   const [date, setDate] = useState(todayIso());
   const [name, setName] = useState(prefill?.name ?? '');
   const [amount, setAmount] = useState(prefill === undefined ? '' : formatAmount(prefill.amount));
@@ -66,7 +68,7 @@ export function MonthRowForm(props: Props) {
   };
 
   return (
-    <div class="dialog" role="dialog" aria-labelledby={`${id}-title`}>
+    <div class="dialog" role="dialog" aria-labelledby={`${id}-title`} ref={ref}>
       <form onSubmit={submit} noValidate>
         <h3 id={`${id}-title`}>{props.title}</h3>
         <div class="field">
@@ -79,7 +81,7 @@ export function MonthRowForm(props: Props) {
         </div>
         <div class="field">
           <label for={`${id}-amount`}>Сума</label>
-          <input id={`${id}-amount`} inputMode="decimal" autoComplete="off" required value={amount} onInput={(e) => { setAmount(e.currentTarget.value); }} />
+          <input id={`${id}-amount`} data-autofocus inputMode="decimal" autoComplete="off" required value={amount} onInput={(e) => { setAmount(e.currentTarget.value); }} />
         </div>
         <CurrencyField value={currency} onChange={setCurrency} />
         <div class="field">

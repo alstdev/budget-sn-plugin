@@ -6,6 +6,7 @@ import {
   type Operation,
 } from '../templates/shared/ledger';
 import { CurrencyField } from './CurrencyField';
+import { useDialog } from './dialog';
 
 interface Props {
   readonly title: string;
@@ -27,6 +28,7 @@ interface Props {
 /** Operation form (docs/SPEC.md 4.2, 4.3). */
 export function OperationForm({ title, defaultCurrency, sign, submitLabel, checkbox, onSubmit, onCancel }: Props) {
   const id = useId();
+  const ref = useDialog<HTMLDivElement>(onCancel);
   const [date, setDate] = useState(todayIso());
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState(defaultCurrency);
@@ -53,7 +55,7 @@ export function OperationForm({ title, defaultCurrency, sign, submitLabel, check
   };
 
   return (
-    <div class="dialog" role="dialog" aria-labelledby={`${id}-title`}>
+    <div class="dialog" role="dialog" aria-labelledby={`${id}-title`} ref={ref}>
       <form onSubmit={submit} noValidate>
         <h3 id={`${id}-title`}>{title}</h3>
         <div class="field">
@@ -72,6 +74,7 @@ export function OperationForm({ title, defaultCurrency, sign, submitLabel, check
           <label for={`${id}-amount`}>Сума{sign === -1 ? ' (списати)' : ''}</label>
           <input
             id={`${id}-amount`}
+            data-autofocus
             inputMode="decimal"
             autoComplete="off"
             required

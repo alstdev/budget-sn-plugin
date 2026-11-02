@@ -221,3 +221,38 @@ describe('months flow (SPEC 4.7)', () => {
     expect(text).toMatch(/\| 2026-10-28 \| Кредитка +\| +500 \| UAH \| +500 \| борг/);
   });
 });
+
+describe('"+ Розділ" dialog and mobile button (SPEC 4.1, 8)', () => {
+  it('creates a custom table through the dialog; Escape closes it', () => {
+    const bridge = new FakeBridge(note(months));
+    const c = mount(<App bridge={bridge} now={() => new Date(2026, 9, 20)} />);
+    expect(c.querySelector('button.fab')?.getAttribute('aria-label')).toBe('Новий розділ');
+    click(button(c, '+ Розділ'));
+    expect(c.querySelector('[aria-modal="true"]')).not.toBeNull();
+    // Escape closes the dialog.
+    void act(() => {
+      c.querySelector('[aria-modal="true"]')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    expect(c.querySelector('[aria-modal="true"]')).toBeNull();
+
+    click(c.querySelector('button.fab'));
+    const choice = [...c.querySelectorAll('.choices button')].find((b) => b.textContent.includes('Довільна таблиця'));
+    click(choice);
+    const [title, cols] = [...c.querySelectorAll('[aria-modal="true"] input')];
+    type(title ?? null, 'Підписки');
+    type(cols ?? null, 'Сервіс, Ціна');
+    click(c.querySelector('[aria-modal="true"] button[type="submit"]'));
+    expect(c.querySelector('[aria-modal="true"]')).toBeNull();
+    expect(bridge.saves[0]?.text.endsWith('## Підписки\n| Сервіс | Ціна |\n| ------ | ---- |\n')).toBe(true);
+  });
+
+  it('shows consistency warnings in the overview and cards', () => {
+    const text = months.replace('| 2026-10-05 | 6000 | UAH | 6000 | платіж |', '| 2026-10-06 | 6000 | UAH | 6000 | платіж |');
+    const bridge = new FakeBridge(note(text));
+    const c = mount(<App bridge={bridge} now={() => new Date(2026, 9, 20)} />);
+    expect(c.textContent).toContain('Неузгоджених записів між місяцями й боргами/накопиченнями: 2');
+    click(button(c, 'Борги'));
+    click(c.querySelector('.card-toggle'));
+    expect(c.textContent).toContain('2026-10-06 6000 UAH: немає рядка у витратах місяця 2026-10.');
+  });
+});
