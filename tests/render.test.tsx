@@ -256,3 +256,27 @@ describe('"+ Розділ" dialog and mobile button (SPEC 4.1, 8)', () => {
     expect(c.textContent).toContain('2026-10-06 6000 UAH: немає рядка у витратах місяця 2026-10.');
   });
 });
+
+describe('waiting screen', () => {
+  const silent: Bridge = {
+    onNote: () => () => undefined,
+    onDiagnostics: () => () => undefined,
+    diagnostics: () => {
+      throw new Error('not used');
+    },
+    save: () => 'not-ready',
+  };
+
+  it('shows three dots and no text until the note arrives', () => {
+    const c = mount(<App bridge={silent} />);
+    const loading = c.querySelector('.loading[role="status"]');
+    expect(loading?.querySelectorAll('.dot')).toHaveLength(3);
+    expect(loading?.classList.contains('standalone')).toBe(false);
+    expect(c.textContent).toBe('');
+  });
+
+  it('uses the black background when opened outside Standard Notes', () => {
+    const c = mount(<App bridge={silent} standalone />);
+    expect(c.querySelector('.loading.standalone')).not.toBeNull();
+  });
+});

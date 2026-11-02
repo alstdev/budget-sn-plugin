@@ -49,7 +49,16 @@ interface Banner {
   readonly text: string;
 }
 
-export function App({ bridge, now = () => new Date() }: { readonly bridge: Bridge; readonly now?: () => Date }) {
+export function App({
+  bridge,
+  now = () => new Date(),
+  standalone = false,
+}: {
+  readonly bridge: Bridge;
+  readonly now?: () => Date;
+  /** The page was opened directly, not inside Standard Notes. */
+  readonly standalone?: boolean;
+}) {
   const [doc, setDoc] = useState<BudgetDocument | null>(null);
   const [locked, setLocked] = useState(false);
   const [meta, setMeta] = useState<NoteMeta>(DEFAULT_META);
@@ -129,9 +138,11 @@ export function App({ bridge, now = () => new Date() }: { readonly bridge: Bridg
 
   if (doc === null) {
     return (
-      <main class="app">
-        <p class="muted">Очікування нотатки від Standard Notes…</p>
-      </main>
+      <div class={standalone ? 'loading standalone' : 'loading'} role="status" aria-label="Завантаження">
+        <span class="dot" />
+        <span class="dot" />
+        <span class="dot" />
+      </div>
     );
   }
 
