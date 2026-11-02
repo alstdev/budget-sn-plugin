@@ -1,6 +1,8 @@
-// Plugin identity. Stage 0 uses a dedicated identifier so the probe can be
-// removed from Standard Notes without touching the real plugin later.
-export const EXT_IDENTIFIER = 'io.github.alstdev.budget-hello';
-export const EXT_NAME = 'Budget hello (stage 0)';
+// Plugin identity (Standard Notes ext.json). The stage 0 probe used a separate
+// identifier (io.github.alstdev.budget-hello), so both can coexist.
+export const EXT_IDENTIFIER = 'io.github.alstdev.budget';
+export const EXT_NAME = 'Бюджет';
 export const PAGES_URL = 'https://alstdev.github.io/budget-sn-plugin/';
 export const RELEASE_BASE = 'https://github.com/alstdev/budget-sn-plugin/releases/download/';
+/** File name of the release zip; deploy.yml builds the same name. */
+export const zipName = (version: string): string => `budget-${version}.zip`;
