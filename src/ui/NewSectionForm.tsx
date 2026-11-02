@@ -3,6 +3,7 @@ import { isCurrency, parseAmount } from '../core/money';
 import type { CreateInput } from '../core/template';
 import { validateName } from '../templates/shared/ledger';
 import { CurrencyField } from './CurrencyField';
+import { useDialog } from './dialog';
 
 interface Props {
   readonly title: string;
@@ -15,6 +16,7 @@ interface Props {
 /** "+ Борг" / "+ Накопичення": name, currency, start amount or goal. */
 export function NewSectionForm({ title, amountLabel, amountRequired, onSubmit, onCancel }: Props) {
   const id = useId();
+  const ref = useDialog<HTMLDivElement>(onCancel);
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState('UAH');
   const [amount, setAmount] = useState('');
@@ -43,13 +45,14 @@ export function NewSectionForm({ title, amountLabel, amountRequired, onSubmit, o
   };
 
   return (
-    <div class="dialog" role="dialog" aria-labelledby={`${id}-title`}>
+    <div class="dialog" role="dialog" aria-labelledby={`${id}-title`} ref={ref}>
       <form onSubmit={submit} noValidate>
         <h3 id={`${id}-title`}>{title}</h3>
         <div class="field">
           <label for={`${id}-name`}>Назва</label>
           <input
             id={`${id}-name`}
+            placeholder={amountRequired ? 'Напр.: Кредит у банку' : 'Напр.: Подушка безпеки'}
             required
             maxLength={80}
             autoComplete="off"

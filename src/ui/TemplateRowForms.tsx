@@ -3,6 +3,7 @@ import { isCurrency, parseAmount } from '../core/money';
 import { isMonthKey } from '../templates/months/model';
 import { STATUS_PLANNED, type FixedRow, type Link, type PlannedRow } from '../templates/monthTemplate/model';
 import { CurrencyField } from './CurrencyField';
+import { useDialog } from './dialog';
 
 interface FormShellProps {
   readonly title: string;
@@ -14,8 +15,9 @@ interface FormShellProps {
 
 function FormShell({ title, error, onSubmit, onCancel, children }: FormShellProps) {
   const id = useId();
+  const ref = useDialog<HTMLDivElement>(onCancel);
   return (
-    <div class="dialog" role="dialog" aria-labelledby={`${id}-title`}>
+    <div class="dialog" role="dialog" aria-labelledby={`${id}-title`} ref={ref}>
       <form onSubmit={onSubmit} noValidate>
         <h3 id={`${id}-title`}>{title}</h3>
         {children}

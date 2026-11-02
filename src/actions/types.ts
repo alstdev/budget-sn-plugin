@@ -33,7 +33,8 @@ export type DocAction =
       readonly mirror: boolean;
     }
   | { readonly type: 'addFixed'; readonly row: FixedRow }
-  | { readonly type: 'addPlanned'; readonly row: PlannedRow };
+  | { readonly type: 'addPlanned'; readonly row: PlannedRow }
+  | { readonly type: 'addTable'; readonly title: string; readonly columns: readonly string[] };
 
 /** Facts about the whole note that cards need (links, months, defaults). */
 export interface DocContext {

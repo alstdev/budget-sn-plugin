@@ -243,6 +243,13 @@ export function applyAction(doc: BudgetDocument, action: DocAction): ChangeResul
         rows.some((r) => normalizeTitle(r.name) === key),
       );
     }
+    case 'addTable':
+      return addSection(doc, 'table', {
+        title: action.title,
+        columns: [...action.columns],
+        align: action.columns.map(() => 'left' as const),
+        rows: [],
+      });
     case 'addPlanned': {
       const key = normalizeTitle(action.row.name);
       return addTemplateRow(doc, 'planned', PLANNED_TITLE, action.row, (rows) =>
