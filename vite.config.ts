@@ -21,6 +21,9 @@ function extJson(): Plugin {
         description: 'Budget kept as plain Markdown: debts, savings, months.',
         url: `${PAGES_URL}index.html`,
         download_url: `${RELEASE_BASE}v${pkg.version}/${zipName(pkg.version)}`,
+        // Desktop SN compares `version` here with the installed copy and
+        // downloads `download_url` when it is newer (auto-update).
+        latest_url: `${PAGES_URL}ext.json`,
       };
       this.emitFile({
         type: 'asset',

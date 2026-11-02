@@ -1,6 +1,6 @@
 {
   "name": "sn-plugin-budget",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Budget editor plugin for Standard Notes: data kept as plain Markdown",
   "license": "AGPL-3.0-only",
