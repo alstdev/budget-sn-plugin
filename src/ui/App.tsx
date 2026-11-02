@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { applyAction, docContext, type DocAction } from '../actions';
 import type { Bridge, SaveOutcome } from '../bridge';
 import {
   addSection,
@@ -13,12 +14,15 @@ import {
   type BudgetDocument,
 } from '../core/document';
 import { DEFAULT_META, readMeta, writeMeta, type NoteMeta, type Tab } from '../core/meta';
-import { formatMoneyUi, sum } from '../core/money';
+import { formatMoneyUi } from '../core/money';
 import { getTemplate } from '../core/registry';
 import { checkSave } from '../core/saveGuard';
-import { debtStats, type DebtModel } from '../templates/debts';
-import { savingsStats, type SavingsModel } from '../templates/savings';
+import { monthStats, monthTitle, nextMonthKey, type MonthModel } from '../templates/months/model';
 import { NewSectionForm } from './NewSectionForm';
+import { buildPreview, monthKeyOf, moneyList, overview } from './overview';
+import { FixedRowForm, PlannedRowForm } from './TemplateRowForms';
+
+export { buildPreview } from './overview';
 
 const SAVE_ERRORS: Readonly<Record<Exclude<SaveOutcome, 'queued'>, string>> = {
   'not-ready': 'Нотатка ще не отримана від Standard Notes.',
@@ -27,47 +31,28 @@ const SAVE_ERRORS: Readonly<Record<Exclude<SaveOutcome, 'queued'>, string>> = {
   'too-large': 'Нотатка завелика для збереження.',
 };
 
-const TABS: readonly { id: Tab; label: string }[] = [
+const TAB_LABELS: readonly { id: Tab; label: string }[] = [
+  { id: 'overview', label: 'Огляд' },
   { id: 'debts', label: 'Борги' },
+  { id: 'months', label: 'Місяці' },
   { id: 'savings', label: 'Накопичення' },
+  { id: 'planning', label: 'Планування' },
   { id: 'other', label: 'Інше' },
 ];
 
-const TAB_TEMPLATE: Readonly<Record<Exclude<Tab, 'other'>, string>> = { debts: 'debt', savings: 'savings' };
-
-function totalsByCurrency(items: readonly (readonly [string, number])[]): string {
-  const totals = new Map<string, number[]>();
-  for (const [currency, value] of items) totals.set(currency, [...(totals.get(currency) ?? []), value]);
-  return [...totals.entries()].map(([c, values]) => formatMoneyUi(sum(values), c)).join(' + ');
-}
-
-/** Note preview shown in the Standard Notes list (docs/SPEC.md 6.4). */
-export function buildPreview(doc: BudgetDocument): string {
-  const debts = sectionsOf(doc, 'debt').map(({ block }) => {
-    const model = block.model as DebtModel;
-    return [model.currency, debtStats(model).remaining] as const;
-  });
-  const savings = sectionsOf(doc, 'savings').map(({ block }) => {
-    const model = block.model as SavingsModel;
-    return [model.currency, savingsStats(model).balance] as const;
-  });
-  const parts: string[] = [];
-  if (debts.length > 0) parts.push(`Борги: ${totalsByCurrency(debts)}`);
-  if (savings.length > 0) parts.push(`Накопичення: ${totalsByCurrency(savings)}`);
-  return parts.length > 0 ? parts.join(' · ') : 'Бюджет';
-}
+type Adding = 'debt' | 'savings' | 'fixed' | 'planned' | null;
 
 interface Banner {
   readonly kind: 'info' | 'error';
   readonly text: string;
 }
 
-export function App({ bridge }: { readonly bridge: Bridge }) {
+export function App({ bridge, now = () => new Date() }: { readonly bridge: Bridge; readonly now?: () => Date }) {
   const [doc, setDoc] = useState<BudgetDocument | null>(null);
   const [locked, setLocked] = useState(false);
   const [meta, setMeta] = useState<NoteMeta>(DEFAULT_META);
   const [banner, setBanner] = useState<Banner | null>(null);
-  const [adding, setAdding] = useState<Exclude<Tab, 'other'> | null>(null);
+  const [adding, setAdding] = useState<Adding>(null);
 
   // Latest values for callbacks created in earlier renders.
   const lastText = useRef<string | null>(null);
@@ -113,7 +98,7 @@ export function App({ bridge }: { readonly bridge: Bridge }) {
       setBanner({ kind: 'error', text: verdict.message });
       return verdict.message;
     }
-    const outcome = bridge.save({ text, preview: buildPreview(next), meta: writeMeta(metaRef.current) });
+    const outcome = bridge.save({ text, preview: buildPreview(next, now()), meta: writeMeta(metaRef.current) });
     if (outcome !== 'queued') return SAVE_ERRORS[outcome];
     const saved = parseDocument(text);
     lastText.current = text;
@@ -121,6 +106,22 @@ export function App({ bridge }: { readonly bridge: Bridge }) {
     setDoc(saved);
     setBanner(null);
     return null;
+  };
+
+  /** Applies a multi-section action to the latest document and saves it. */
+  const act = (action: DocAction): string | null => {
+    const current = docRef.current;
+    if (current === null) return 'Нотатка ще не отримана.';
+    const result = applyAction(current, action);
+    if (!result.ok) return result.error;
+    const previous = metaRef.current;
+    if (action.type === 'addMonthRow' || action.type === 'payPending') {
+      const kind = action.type === 'addMonthRow' && action.table === 'income' ? 'inc' : 'exp';
+      updateMeta({ ...previous, lastCur: { ...previous.lastCur, [kind]: action.row.currency } });
+    }
+    const error = commit(result.doc);
+    if (error !== null) updateMeta(previous);
+    return error;
   };
 
   if (doc === null) {
@@ -134,6 +135,7 @@ export function App({ bridge }: { readonly bridge: Bridge }) {
   const writable = isWritable(doc) && !locked;
   const tab = meta.ui.tab;
   const others = unknownBlocks(doc);
+  const context = docContext(doc, meta.lastCur);
 
   const notices: string[] = [];
   if (locked) notices.push('Нотатка заблокована (Prevent editing): лише перегляд.');
@@ -153,7 +155,7 @@ export function App({ bridge }: { readonly bridge: Bridge }) {
             type="button"
             class="primary"
             onClick={() => {
-              const error = commit(parseDocument(skeletonText(new Date().getFullYear())));
+              const error = commit(parseDocument(skeletonText(now().getFullYear())));
               if (error !== null) setBanner({ kind: 'error', text: error });
             }}
           >
@@ -170,16 +172,24 @@ export function App({ bridge }: { readonly bridge: Bridge }) {
     setAdding(null);
   };
 
+  const months = sectionsOf(doc, 'month').map(({ block }) => (block.model as MonthModel).key);
+  const lastMonth = months[months.length - 1];
+  const anyMonthOpen = meta.ui.open.some((k) => k.startsWith('month:'));
+  const isOpen = (key: string) =>
+    meta.ui.open.includes(key) || (!anyMonthOpen && lastMonth !== undefined && key === `month:${lastMonth}`);
+
   const toggle = (key: string) => {
-    const open = metaRef.current.ui.open;
+    let open = metaRef.current.ui.open;
+    // The last month is open by default; make that explicit before toggling.
+    if (!open.some((k) => k.startsWith('month:')) && lastMonth !== undefined) open = [...open, `month:${lastMonth}`];
     const next = open.includes(key) ? open.filter((k) => k !== key) : [...open, key];
     updateMeta({ ...metaRef.current, ui: { ...metaRef.current.ui, open: next } });
   };
 
-  const renderSections = (templateId: string) => {
+  const renderSections = (templateId: string, empty: string) => {
     const template = getTemplate(templateId);
     const list = sectionsOf(doc, templateId);
-    if (list.length === 0) return <p class="muted">Ще немає жодного розділу.</p>;
+    if (list.length === 0) return <p class="muted">{empty}</p>;
     return list.map(({ block }) => {
       const name = template.name(block.model);
       const key = `${templateId}:${name}`;
@@ -190,7 +200,7 @@ export function App({ bridge }: { readonly bridge: Bridge }) {
           model={block.model}
           issues={block.issues}
           readOnly={!writable || block.readOnly}
-          open={meta.ui.open.includes(key)}
+          open={isOpen(key)}
           onToggle={() => {
             toggle(key);
           }}
@@ -198,37 +208,192 @@ export function App({ bridge }: { readonly bridge: Bridge }) {
             const current = docRef.current;
             if (current === null) return 'Нотатка ще не отримана.';
             const index = findSection(current, templateId, name);
-            if (index === -1) return 'Розділ змінено або видалено в іншому місці; операцію не збережено.';
+            if (index === -1) return 'Розділ змінено або видалено в іншому місці; не збережено.';
             const result = updateSection(current, index, nextModel);
             return result.ok ? commit(result.doc) : result.error;
           }}
+          context={context}
+          act={act}
         />
       );
     });
   };
 
-  const addForm = (which: Exclude<Tab, 'other'>) => {
-    const templateId = TAB_TEMPLATE[which];
-    const isDebt = which === 'debts';
-    return (
-      <NewSectionForm
-        title={isDebt ? 'Новий борг' : 'Нове накопичення'}
-        amountLabel={isDebt ? 'Початкова сума' : 'Ціль'}
-        amountRequired={isDebt}
-        onSubmit={(input) => {
-          const current = docRef.current;
-          if (current === null) return 'Нотатка ще не отримана.';
-          const result = addSection(current, templateId, getTemplate(templateId).create(input));
-          if (!result.ok) return result.error;
-          const error = commit(result.doc);
-          if (error === null) setAdding(null);
-          return error;
+  const newSectionForm = (templateId: 'debt' | 'savings') => (
+    <NewSectionForm
+      title={templateId === 'debt' ? 'Новий борг' : 'Нове накопичення'}
+      amountLabel={templateId === 'debt' ? 'Початкова сума' : 'Ціль'}
+      amountRequired={templateId === 'debt'}
+      onSubmit={(input) => {
+        const current = docRef.current;
+        if (current === null) return 'Нотатка ще не отримана.';
+        const result = addSection(current, templateId, getTemplate(templateId).create(input));
+        if (!result.ok) return result.error;
+        const error = commit(result.doc);
+        if (error === null) setAdding(null);
+        return error;
+      }}
+      onCancel={() => {
+        setAdding(null);
+      }}
+    />
+  );
+
+  const addButton = (which: Exclude<Adding, null>, label: string) =>
+    writable && adding !== which ? (
+      <button
+        type="button"
+        onClick={() => {
+          setAdding(which);
         }}
-        onCancel={() => {
-          setAdding(null);
-        }}
-      />
-    );
+      >
+        {label}
+      </button>
+    ) : null;
+
+  const done = (error: string | null) => {
+    if (error === null) setAdding(null);
+    return error;
+  };
+
+  const panel = () => {
+    switch (tab) {
+      case 'overview': {
+        const o = overview(doc, now());
+        const s = o.month === null ? null : monthStats(o.month);
+        return (
+          <div class="overview">
+            <dl class="details">
+              <dt>Борги</dt>
+              <dd class="num">{o.debts.length === 0 ? '—' : moneyList(o.debts)}</dd>
+              <dt>Накопичення</dt>
+              <dd class="num">{o.savings.length === 0 ? '—' : moneyList(o.savings)}</dd>
+            </dl>
+            {o.month !== null && s !== null && (
+              <>
+                <h3>
+                  {o.month.key} {o.month.title === '' ? monthTitle(o.month.key) : o.month.title}
+                </h3>
+                <dl class="details">
+                  <dt>Надійшло</dt>
+                  <dd class="num">{formatMoneyUi(s.incomeUah, 'UAH')}</dd>
+                  <dt>Витрачено</dt>
+                  <dd class="num">{formatMoneyUi(s.spentUah, 'UAH')}</dd>
+                  <dt>Залишок</dt>
+                  <dd class="num">{formatMoneyUi(s.balance, 'UAH')}</dd>
+                  <dt>Після очікуваних</dt>
+                  <dd class="num">{formatMoneyUi(s.afterPending, 'UAH')}</dd>
+                </dl>
+                <h4>Очікують оплати</h4>
+                {o.pending.length === 0 ? (
+                  <p class="muted">Немає.</p>
+                ) : (
+                  <ul class="plain-list">
+                    {o.pending.map((r, i) => (
+                      <li key={i}>
+                        {r.name} — <span class="num">{formatMoneyUi(r.amount, r.currency)}</span>
+                        {r.comment === '' ? '' : ` (${r.comment})`}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+            {o.month === null && <p class="muted">Місяців ще немає. Створіть перший на вкладці «Місяці».</p>}
+            <h4>Заплановані покупки</h4>
+            {o.planned.length === 0 ? (
+              <p class="muted">Немає.</p>
+            ) : (
+              <ul class="plain-list">
+                {o.planned.map((r, i) => (
+                  <li key={i}>
+                    {r.name} — <span class="num">{formatMoneyUi(r.budget, r.currency)}</span>
+                    {r.month === '' ? '' : `, ${r.month}`}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      }
+      case 'debts':
+        return (
+          <>
+            {renderSections('debt', 'Боргів ще немає.')}
+            {adding === 'debt' && writable && newSectionForm('debt')}
+            <div class="actions">{addButton('debt', '+ Борг')}</div>
+          </>
+        );
+      case 'savings':
+        return (
+          <>
+            {renderSections('savings', 'Накопичень ще немає.')}
+            {adding === 'savings' && writable && newSectionForm('savings')}
+            <div class="actions">{addButton('savings', '+ Накопичення')}</div>
+          </>
+        );
+      case 'months': {
+        const nextKey = lastMonth === undefined ? monthKeyOf(now()) : nextMonthKey(lastMonth);
+        return (
+          <>
+            {renderSections('month', 'Місяців ще немає.')}
+            {writable && (
+              <div class="actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const error = act({ type: 'createMonth', key: nextKey });
+                    if (error !== null) setBanner({ kind: 'error', text: error });
+                  }}
+                >
+                  Створити {nextKey} {monthTitle(nextKey)} з шаблону
+                </button>
+              </div>
+            )}
+          </>
+        );
+      }
+      case 'planning':
+        return (
+          <>
+            {renderSections('fixed', 'Постійних витрат ще немає.')}
+            {adding === 'fixed' && writable && (
+              <FixedRowForm
+                debtNames={context.debtNames}
+                savingsNames={context.savingsNames}
+                onSubmit={(row) => done(act({ type: 'addFixed', row }))}
+                onCancel={() => {
+                  setAdding(null);
+                }}
+              />
+            )}
+            <div class="actions">{addButton('fixed', '+ Постійна витрата')}</div>
+            {renderSections('planned', 'Запланованих покупок ще немає.')}
+            {adding === 'planned' && writable && (
+              <PlannedRowForm
+                defaultMonth={lastMonth === undefined ? monthKeyOf(now()) : nextMonthKey(lastMonth)}
+                onSubmit={(row) => done(act({ type: 'addPlanned', row }))}
+                onCancel={() => {
+                  setAdding(null);
+                }}
+              />
+            )}
+            <div class="actions">{addButton('planned', '+ Покупка')}</div>
+            <p class="hint">Змінити чи видалити рядки шаблону можна в Plain Editor.</p>
+          </>
+        );
+      case 'other':
+        return others.length === 0 ? (
+          <p class="muted">Нерозпізнаного вмісту немає.</p>
+        ) : (
+          others.map((text, i) => (
+            <details key={i} class="unknown">
+              <summary>Невідомий розділ {i + 1}</summary>
+              <pre>{text}</pre>
+            </details>
+          ))
+        );
+    }
   };
 
   return (
@@ -244,7 +409,7 @@ export function App({ bridge }: { readonly bridge: Bridge }) {
         </p>
       )}
       <div class="tabs" role="tablist" aria-label="Розділи бюджету">
-        {TABS.map((t) => (
+        {TAB_LABELS.map((t) => (
           <button
             key={t.id}
             type="button"
@@ -263,35 +428,7 @@ export function App({ bridge }: { readonly bridge: Bridge }) {
         ))}
       </div>
       <section role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} class="panel">
-        {tab === 'other' ? (
-          others.length === 0 ? (
-            <p class="muted">Нерозпізнаного вмісту немає.</p>
-          ) : (
-            others.map((text, i) => (
-              <details key={i} class="unknown">
-                <summary>Невідомий розділ {i + 1}</summary>
-                <pre>{text}</pre>
-              </details>
-            ))
-          )
-        ) : (
-          <>
-            {renderSections(TAB_TEMPLATE[tab])}
-            {writable && adding === tab && addForm(tab)}
-            {writable && adding !== tab && (
-              <div class="actions">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdding(tab);
-                  }}
-                >
-                  {tab === 'debts' ? '+ Борг' : '+ Накопичення'}
-                </button>
-              </div>
-            )}
-          </>
-        )}
+        {panel()}
       </section>
     </main>
   );

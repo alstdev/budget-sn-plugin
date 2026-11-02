@@ -9,6 +9,8 @@ export interface CardAction {
   readonly label: string;
   readonly formTitle: string;
   readonly sign: 1 | -1;
+  /** Offer "also record in month expenses" (docs/SPEC.md 4.6). */
+  readonly mirror?: boolean;
 }
 
 interface Props {
@@ -24,7 +26,9 @@ interface Props {
   readonly open: boolean;
   readonly onToggle: () => void;
   readonly actions: readonly CardAction[];
-  readonly onAdd: (op: Operation) => string | null;
+  readonly onAdd: (op: Operation, mirror: boolean) => string | null;
+  /** Why the month mirror is unavailable for a date, or null. */
+  readonly mirrorUnavailable?: (date: string) => string | null;
   readonly children?: ComponentChildren;
 }
 
@@ -147,8 +151,16 @@ export function LedgerCard(props: Props) {
               defaultCurrency={currency}
               sign={action.sign}
               submitLabel="Зберегти"
-              onSubmit={(op) => {
-                const error = props.onAdd(op);
+              {...(action.mirror === true
+                ? {
+                    checkbox: {
+                      label: 'Також записати у витрати місяця',
+                      unavailable: props.mirrorUnavailable ?? (() => null),
+                    },
+                  }
+                : {})}
+              onSubmit={(op, mirror) => {
+                const error = props.onAdd(op, mirror);
                 if (error === null) setAction(null);
                 return error;
               }}

@@ -3,6 +3,7 @@
  * folder in src/templates/ plus one line in src/core/registry.ts.
  */
 import type { ComponentType } from 'preact';
+import type { DocAction, DocContext } from '../actions/types';
 import type { Heading } from './md/lines';
 import type { Minor } from './money';
 
@@ -35,6 +36,10 @@ export interface CardProps<M> {
   readonly onToggle: () => void;
   /** Applies a change; returns an error text to show, or null on success. */
   readonly onChange: (next: M) => string | null;
+  /** Facts about the whole note (months, links, default currencies). */
+  readonly context: DocContext;
+  /** Applies a change that spans several sections; error text or null. */
+  readonly act: (action: DocAction) => string | null;
 }
 
 export interface SectionTemplate<M> {

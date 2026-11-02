@@ -172,7 +172,7 @@ describe('adding sections', () => {
     const text = serializeDocument(result.doc);
     expect(text.startsWith('# Бюджет 2026\n> формат: budget v1')).toBe(true);
     expect(text).toContain('## Борги\n\n### Перший · UAH\n');
-    expect(text).toContain('| ---- | ---: | --- | ----: | -------- |\n\n## Накопичення\n');
+    expect(text).toContain('| ---- | ---: | --- | ----: | -------- |\n\n## Місяці\n');
   });
 });
 
@@ -184,6 +184,9 @@ describe('docs/SAMPLE.md', () => {
     expect(doc.format).toEqual({ kind: 'ok' });
     expect(sectionsOf(doc, 'debt')).toHaveLength(2);
     expect(sectionsOf(doc, 'savings')).toHaveLength(1);
+    expect(sectionsOf(doc, 'month')).toHaveLength(1);
+    expect(sectionsOf(doc, 'fixed')).toHaveLength(1);
+    expect(sectionsOf(doc, 'planned')).toHaveLength(1);
     expect(doc.blocks.flatMap((b) => (b.kind === 'section' ? b.issues : []))).toEqual([]);
     expect(unknownBlocks(doc)).toEqual([]);
   });

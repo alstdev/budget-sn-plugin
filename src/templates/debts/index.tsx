@@ -15,6 +15,7 @@ import {
   type Ledger,
 } from '../shared/ledger';
 import { LedgerCard } from '../shared/LedgerCard';
+import { mirrorUnavailable } from '../shared/mirror';
 
 export interface DebtModel {
   readonly name: string;
@@ -46,7 +47,7 @@ export function debtStats(model: DebtModel): DebtStats {
   };
 }
 
-function DebtCard({ model, issues, readOnly, open, onToggle, onChange }: CardProps<DebtModel>) {
+function DebtCard({ model, issues, readOnly, open, onToggle, onChange, context, act }: CardProps<DebtModel>) {
   const stats = debtStats(model);
   const extraIssues =
     stats.otherCurrencyOps > 0
@@ -70,8 +71,13 @@ function DebtCard({ model, issues, readOnly, open, onToggle, onChange }: CardPro
       readOnly={readOnly}
       open={open}
       onToggle={onToggle}
-      actions={[{ label: '+ Платіж', formTitle: 'Платіж', sign: 1 }]}
-      onAdd={(op) => onChange({ ...model, ledger: appendOperation(model.ledger, op) })}
+      actions={[{ label: '+ Платіж', formTitle: 'Платіж', sign: 1, mirror: true }]}
+      onAdd={(op, mirror) =>
+        mirror
+          ? act({ type: 'ledgerOp', templateId: 'debt', name: model.name, op, mirror: true })
+          : onChange({ ...model, ledger: appendOperation(model.ledger, op) })
+      }
+      mirrorUnavailable={(date) => mirrorUnavailable(context, date)}
     />
   );
 }
